@@ -4,6 +4,7 @@ RUN npm install -g pnpm@10
 
 # Install dependencies
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+# Removed invalid COPY patches line
 COPY lib/db/package.json lib/db/
 COPY lib/api-spec/package.json lib/api-spec/
 COPY lib/api-zod/package.json lib/api-zod/
@@ -19,10 +20,8 @@ COPY . .
 RUN pnpm --filter @workspace/dashboard run build
 RUN pnpm --filter @workspace/api-server run build
 
-# Runtime config
-EXPOSE 3000
-ENV PORT=3000
+EXPOSE 8080
+ENV PORT=8080
 ENV NODE_ENV=production
 
-# Correct entrypoint for your repo
-CMD ["node", "--enable-source-maps", "./artifacts/api-server/dist/server/index.mjs"]
+CMD ["node", "--enable-source-maps", "./artifacts/api-server/dist/index.mjs"]
