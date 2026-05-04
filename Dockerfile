@@ -20,8 +20,10 @@ COPY . .
 RUN pnpm --filter @workspace/dashboard run build
 RUN pnpm --filter @workspace/api-server run build
 
-EXPOSE 8080
-ENV PORT=8080
+# Runtime config
+EXPOSE 3000
+ENV PORT=3000
 ENV NODE_ENV=production
 
-CMD ["node", "--enable-source-maps", "./artifacts/api-server/dist/index.mjs"]
+# Correct entrypoint for your repo
+CMD ["node", "--enable-source-maps", "./artifacts/api-server/dist/server/index.mjs"]
