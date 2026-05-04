@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Invite Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Discord OAuth2 authentication
+  - name: guilds
+    description: Guild/server management
+  - name: invites
+    description: Invite statistics and tracking
+  - name: premium
+    description: Premium tier management
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +30,312 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Log out current user
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /guilds:
+    get:
+      operationId: getGuilds
+      tags: [guilds]
+      summary: List guilds the bot is in and user has access to
+      responses:
+        "200":
+          description: List of guilds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Guild"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /guilds/{guildId}:
+    get:
+      operationId: getGuild
+      tags: [guilds]
+      summary: Get a specific guild
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guild details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildDetail"
+        "404":
+          description: Guild not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /guilds/{guildId}/leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [invites]
+      summary: Get invite leaderboard for a guild
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaderboardResponse"
+
+  /guilds/{guildId}/stats:
+    get:
+      operationId: getGuildStats
+      tags: [invites]
+      summary: Get overall guild statistics
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guild stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildStats"
+
+  /guilds/{guildId}/settings:
+    get:
+      operationId: getGuildSettings
+      tags: [guilds]
+      summary: Get guild settings
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guild settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildSettings"
+    put:
+      operationId: updateGuildSettings
+      tags: [guilds]
+      summary: Update guild settings
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGuildSettingsBody"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildSettings"
+
+  /guilds/{guildId}/members:
+    get:
+      operationId: getGuildMembers
+      tags: [invites]
+      summary: Get recent member join history
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Member join list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembersResponse"
+
+  /guilds/{guildId}/invites/user/{userId}:
+    get:
+      operationId: getUserInviteStats
+      tags: [invites]
+      summary: Get invite stats for a specific user in a guild
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User invite stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInviteStats"
+
+  /guilds/{guildId}/invites/bonus:
+    post:
+      operationId: adjustBonusInvites
+      tags: [invites]
+      summary: Add or remove bonus invites for a user (admin)
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustBonusBody"
+      responses:
+        "200":
+          description: Updated stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInviteStats"
+
+  /guilds/{guildId}/invites/reset:
+    post:
+      operationId: resetUserInvites
+      tags: [invites]
+      summary: Reset a user's invites (admin)
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetInvitesBody"
+      responses:
+        "200":
+          description: Invites reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /premium/plans:
+    get:
+      operationId: getPremiumPlans
+      tags: [premium]
+      summary: Get available premium plans
+      responses:
+        "200":
+          description: List of premium plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PremiumPlan"
+
+  /guilds/{guildId}/premium:
+    get:
+      operationId: getGuildPremium
+      tags: [premium]
+      summary: Get guild's current premium status
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Premium status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PremiumStatus"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +346,418 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        discriminator:
+          type: string
+        avatar:
+          type: ["string", "null"]
+        avatarUrl:
+          type: string
+      required:
+        - id
+        - username
+        - discriminator
+        - avatarUrl
+
+    Guild:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: ["string", "null"]
+        iconUrl:
+          type: ["string", "null"]
+        premiumTier:
+          type: integer
+        memberCount:
+          type: ["integer", "null"]
+        isAdmin:
+          type: boolean
+      required:
+        - id
+        - name
+        - premiumTier
+        - isAdmin
+
+    GuildDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: ["string", "null"]
+        iconUrl:
+          type: ["string", "null"]
+        premiumTier:
+          type: integer
+        memberCount:
+          type: ["integer", "null"]
+        isAdmin:
+          type: boolean
+        totalInvites:
+          type: integer
+        totalMembers:
+          type: integer
+        activeTrackers:
+          type: integer
+      required:
+        - id
+        - name
+        - premiumTier
+        - isAdmin
+        - totalInvites
+        - totalMembers
+        - activeTrackers
+
+    GuildSettings:
+      type: object
+      properties:
+        guildId:
+          type: string
+        joinMessage:
+          type: ["string", "null"]
+        leaveMessage:
+          type: ["string", "null"]
+        joinChannelId:
+          type: ["string", "null"]
+        leaveChannelId:
+          type: ["string", "null"]
+        fakeThreshold:
+          type: integer
+        trackFakeInvites:
+          type: boolean
+        trackLeaves:
+          type: boolean
+        embedColor:
+          type: ["string", "null"]
+        embedImage:
+          type: ["string", "null"]
+      required:
+        - guildId
+        - fakeThreshold
+        - trackFakeInvites
+        - trackLeaves
+
+    UpdateGuildSettingsBody:
+      type: object
+      properties:
+        joinMessage:
+          type: ["string", "null"]
+        leaveMessage:
+          type: ["string", "null"]
+        joinChannelId:
+          type: ["string", "null"]
+        leaveChannelId:
+          type: ["string", "null"]
+        fakeThreshold:
+          type: ["integer", "null"]
+        trackFakeInvites:
+          type: ["boolean", "null"]
+        trackLeaves:
+          type: ["boolean", "null"]
+        embedColor:
+          type: ["string", "null"]
+        embedImage:
+          type: ["string", "null"]
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: string
+        username:
+          type: string
+        avatar:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        regular:
+          type: integer
+        bonus:
+          type: integer
+        fake:
+          type: integer
+        left:
+          type: integer
+        total:
+          type: integer
+      required:
+        - rank
+        - userId
+        - username
+        - regular
+        - bonus
+        - fake
+        - left
+        - total
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - entries
+        - total
+        - page
+        - limit
+
+    GuildStats:
+      type: object
+      properties:
+        totalJoins:
+          type: integer
+        totalLeaves:
+          type: integer
+        totalFake:
+          type: integer
+        netGrowth:
+          type: integer
+        topInviter:
+          type: ["string", "null"]
+        topInviterCount:
+          type: ["integer", "null"]
+        joinsTrend:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendPoint"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityItem"
+      required:
+        - totalJoins
+        - totalLeaves
+        - totalFake
+        - netGrowth
+        - joinsTrend
+        - recentActivity
+
+    TrendPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        joins:
+          type: integer
+        leaves:
+          type: integer
+      required:
+        - date
+        - joins
+        - leaves
+
+    ActivityItem:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [join, leave]
+        userId:
+          type: string
+        username:
+          type: string
+        inviterId:
+          type: ["string", "null"]
+        inviterName:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+        isFake:
+          type: boolean
+      required:
+        - type
+        - userId
+        - username
+        - timestamp
+        - isFake
+
+    MemberJoin:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        username:
+          type: string
+        avatar:
+          type: ["string", "null"]
+        inviterId:
+          type: ["string", "null"]
+        inviterName:
+          type: ["string", "null"]
+        inviteCode:
+          type: ["string", "null"]
+        joinedAt:
+          type: string
+        leftAt:
+          type: ["string", "null"]
+        isFake:
+          type: boolean
+        accountAgeDays:
+          type: ["integer", "null"]
+      required:
+        - id
+        - userId
+        - username
+        - joinedAt
+        - isFake
+
+    MembersResponse:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberJoin"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - members
+        - total
+        - page
+        - limit
+
+    UserInviteStats:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        avatar:
+          type: ["string", "null"]
+        regular:
+          type: integer
+        bonus:
+          type: integer
+        fake:
+          type: integer
+        left:
+          type: integer
+        total:
+          type: integer
+        rank:
+          type: ["integer", "null"]
+        invitedMembers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberJoin"
+      required:
+        - userId
+        - username
+        - regular
+        - bonus
+        - fake
+        - left
+        - total
+
+    AdjustBonusBody:
+      type: object
+      properties:
+        userId:
+          type: string
+        amount:
+          type: integer
+        reason:
+          type: ["string", "null"]
+      required:
+        - userId
+        - amount
+
+    ResetInvitesBody:
+      type: object
+      properties:
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [all, regular, bonus, fake, left]
+      required:
+        - userId
+        - type
+
+    PremiumPlan:
+      type: object
+      properties:
+        tier:
+          type: integer
+        name:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        highlighted:
+          type: boolean
+      required:
+        - tier
+        - name
+        - price
+        - currency
+        - features
+        - highlighted
+
+    PremiumStatus:
+      type: object
+      properties:
+        tier:
+          type: integer
+        tierName:
+          type: string
+        expiresAt:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+      required:
+        - tier
+        - tierName
+        - isActive
