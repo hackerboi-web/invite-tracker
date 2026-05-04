@@ -4,7 +4,6 @@ RUN npm install -g pnpm@10
 
 # Install dependencies
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY patches/ patches/ 2>/dev/null || true
 COPY lib/db/package.json lib/db/
 COPY lib/api-spec/package.json lib/api-spec/
 COPY lib/api-zod/package.json lib/api-zod/
