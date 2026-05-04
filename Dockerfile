@@ -1,10 +1,9 @@
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
 WORKDIR /app
 RUN npm install -g pnpm@10
 
 # Install dependencies
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-# Removed invalid COPY patches line
 COPY lib/db/package.json lib/db/
 COPY lib/api-spec/package.json lib/api-spec/
 COPY lib/api-zod/package.json lib/api-zod/
