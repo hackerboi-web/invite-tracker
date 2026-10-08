@@ -3,13 +3,18 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ComponentType,
   ButtonInteraction,
+  ComponentType,
   MessageFlags
 } from 'discord.js';
 import { client } from '../bot.js';
 import { db } from '../database/client.js';
 import type { TrackedInvite, JoinEvent, GuildStats } from '../types/index.js';
+
+// Components V2 flags
+export const COMPONENTS_V2_FLAG = 32768;
+export const EPHEMERAL_FLAG = 64;
+export const COMPONENTS_V2_EPHEMERAL = COMPONENTS_V2_FLAG + EPHEMERAL_FLAG; // 32832
 
 export interface PaginationState {
   page: number;
@@ -25,12 +30,13 @@ export function createInviteEmbed(
   invites: TrackedInvite[],
   guildId: string,
   page: number,
-  pageSize: number
+  pageSize: number,
+  stateId: string,
+  totalPages: number
 ): EmbedBuilder {
   const start = page * pageSize;
   const end = start + pageSize;
   const pageInvites = invites.slice(start, end);
-  const totalPages = Math.ceil(invites.length / pageSize);
   
   const guild = client.guilds.cache.get(guildId);
   const guildName = guild?.name || 'Unknown Guild';
@@ -54,6 +60,9 @@ export function createInviteEmbed(
   
   embed.setFooter({ text: `Page ${page + 1}/${totalPages} • ${invites.length} total invites` });
   
+  // Components V2: components attached to embed
+  (embed as any).components = [createPaginationButtons(stateId, page, totalPages)];
+  
   return embed;
 }
 
@@ -61,12 +70,13 @@ export function createJoinEventsEmbed(
   events: JoinEvent[],
   guildId: string,
   page: number,
-  pageSize: number
+  pageSize: number,
+  stateId: string,
+  totalPages: number
 ): EmbedBuilder {
   const start = page * pageSize;
   const end = start + pageSize;
   const pageEvents = events.slice(start, end);
-  const totalPages = Math.ceil(events.length / pageSize);
   
   const guild = client.guilds.cache.get(guildId);
   const guildName = guild?.name || 'Unknown Guild';
@@ -88,6 +98,9 @@ export function createJoinEventsEmbed(
   }
   
   embed.setFooter({ text: `Page ${page + 1}/${totalPages} • ${events.length} total joins` });
+  
+  // Components V2: components attached to embed
+  (embed as any).components = [createPaginationButtons(stateId, page, totalPages)];
   
   return embed;
 }
@@ -116,6 +129,7 @@ export function createStatsEmbed(stats: GuildStats | null, guildId: string): Emb
     );
   }
   
+  // Components V2 flag (even without components)
   return embed;
 }
 
@@ -179,7 +193,7 @@ export async function handlePaginationInteraction(interaction: ButtonInteraction
   if (!state) {
     await interaction.reply({
       content: 'This pagination has expired. Please run the command again.',
-      flags: MessageFlags.Ephemeral
+      flags: EPHEMERAL_FLAG
     });
     return;
   }
@@ -187,7 +201,7 @@ export async function handlePaginationInteraction(interaction: ButtonInteraction
   if (state.userId !== interaction.user.id) {
     await interaction.reply({
       content: 'Only the command author can use these buttons.',
-      flags: MessageFlags.Ephemeral
+      flags: EPHEMERAL_FLAG
     });
     return;
   }
@@ -205,18 +219,19 @@ export async function handlePaginationInteraction(interaction: ButtonInteraction
   state.page = newPage;
   
   let embed;
-  let newStateId = stateId;
   
   if (state.type === 'invites') {
     const invites = await db.invites.getByGuild(state.guildId);
-    embed = createInviteEmbed(invites, state.guildId, newPage, 10);
+    embed = createInviteEmbed(invites, state.guildId, newPage, 10, stateId, state.totalPages);
   } else if (state.type === 'joins') {
     const events = await db.joinEvents.getByGuild(state.guildId);
-    embed = createJoinEventsEmbed(events, state.guildId, newPage, 10);
+    embed = createJoinEventsEmbed(events, state.guildId, newPage, 10, stateId, state.totalPages);
   }
   
   if (embed) {
-    const row = createPaginationButtons(newStateId, newPage, state.totalPages);
-    await interaction.update({ embeds: [embed], components: [row] });
+    await interaction.update({ 
+      embeds: [embed], 
+      flags: COMPONENTS_V2_FLAG 
+    });
   }
 }

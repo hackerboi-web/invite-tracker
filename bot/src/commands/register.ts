@@ -1,6 +1,7 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ButtonInteraction } from 'discord.js';
 import { db } from '../database/client.js';
 import { logger } from '../utils/logger.js';
+import { COMPONENTS_V2_FLAG, COMPONENTS_V2_EPHEMERAL, EPHEMERAL_FLAG } from '../utils/components.js';
 
 export const data = new SlashCommandBuilder()
   .setName('register')
@@ -41,7 +42,7 @@ const pendingRegistrations = new Map<string, { botId: string; name: string; guil
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.guild) {
-    await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+    await interaction.reply({ content: 'This command can only be used in a server.', flags: EPHEMERAL_FLAG });
     return;
   }
   
@@ -54,18 +55,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const name = interaction.options.getString('name', true);
       
       if (!/^\d{17,20}$/.test(botId)) {
-        await interaction.reply({ content: 'Invalid bot ID format.', ephemeral: true });
+        await interaction.reply({ content: 'Invalid bot ID format.', flags: EPHEMERAL_FLAG });
         return;
       }
       
       const member = await interaction.guild.members.fetch(botId).catch(() => null);
       if (!member) {
-        await interaction.reply({ content: 'Bot not found in this server.', ephemeral: true });
+        await interaction.reply({ content: 'Bot not found in this server.', flags: EPHEMERAL_FLAG });
         return;
       }
       
       if (!member.user.bot) {
-        await interaction.reply({ content: 'The provided ID is not a bot.', ephemeral: true });
+        await interaction.reply({ content: 'The provided ID is not a bot.', flags: EPHEMERAL_FLAG });
         return;
       }
       
@@ -79,30 +80,33 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         .setColor(0x5865F2)
         .setTimestamp();
       
-      const row = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId(`register:confirm:${botId}:${name}`)
-            .setLabel('Confirm Register')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId('register:cancel')
-            .setLabel('Cancel')
-            .setStyle(ButtonStyle.Danger)
-        );
+      // Components V2: components attached to embed
+      (embed as any).components = [
+        new ActionRowBuilder<ButtonBuilder>()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`register:confirm:${botId}:${name}`)
+              .setLabel('Confirm Register')
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId('register:cancel')
+              .setLabel('Cancel')
+              .setStyle(ButtonStyle.Danger)
+          )
+      ];
       
       const registrationId = Math.random().toString(36).substring(2, 10);
       pendingRegistrations.set(registrationId, { botId, name, guildId, userId: interaction.user.id });
       
       setTimeout(() => pendingRegistrations.delete(registrationId), 5 * 60 * 1000);
       
-      await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
+      await interaction.reply({ embeds: [embed], flags: COMPONENTS_V2_EPHEMERAL });
       
     } else if (subcommand === 'list') {
       const bots = await db.registeredBots.list();
       
       if (bots.length === 0) {
-        await interaction.reply({ content: 'No bots registered for API access.', ephemeral: true });
+        await interaction.reply({ content: 'No bots registered for API access.', flags: EPHEMERAL_FLAG });
         return;
       }
       
@@ -119,7 +123,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         });
       }
       
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAG });
       
     } else if (subcommand === 'revoke') {
       const apiKey = interaction.options.getString('api_key', true);
@@ -132,15 +136,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         .setColor(0xED4245)
         .setTimestamp();
       
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAG });
     }
   } catch (error) {
     logger.error(`Error in /register command: ${error}`);
-    await interaction.reply({ content: 'An error occurred.', ephemeral: true });
+    await interaction.reply({ content: 'An error occurred.', flags: EPHEMERAL_FLAG });
   }
 }
 
-export async function handleRegisterButton(interaction: import('discord.js').ButtonInteraction): Promise<void> {
+export async function handleRegisterButton(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.customId.startsWith('register:')) return;
   
   const parts = interaction.customId.split(':');
@@ -149,7 +153,7 @@ export async function handleRegisterButton(interaction: import('discord.js').But
   const action = parts[1];
   
   if (action === 'cancel') {
-    await interaction.update({ content: 'Registration cancelled.', embeds: [], components: [] });
+    await interaction.update({ content: 'Registration cancelled.', embeds: [], flags: COMPONENTS_V2_EPHEMERAL });
     return;
   }
   
@@ -159,13 +163,13 @@ export async function handleRegisterButton(interaction: import('discord.js').But
       .find(([, v]) => v.botId === botId && v.name === name)?.[0];
     
     if (!registrationId) {
-      await interaction.update({ content: 'Registration expired or invalid.', embeds: [], components: [] });
+      await interaction.update({ content: 'Registration expired or invalid.', embeds: [], flags: COMPONENTS_V2_EPHEMERAL });
       return;
     }
     
     const pending = pendingRegistrations.get(registrationId)!;
     if (pending.userId !== interaction.user.id) {
-      await interaction.reply({ content: 'Only the command author can confirm.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: 'Only the command author can confirm.', flags: EPHEMERAL_FLAG });
       return;
     }
     
@@ -190,10 +194,11 @@ export async function handleRegisterButton(interaction: import('discord.js').But
         .setColor(0x57F287)
         .setFooter({ text: 'Save this API key securely. It will not be shown again.' });
       
-      await interaction.update({ embeds: [embed], components: [] });
+      // No components for final confirmation
+      await interaction.update({ embeds: [embed], flags: COMPONENTS_V2_EPHEMERAL });
     } catch (error) {
       logger.error(`Error confirming registration: ${error}`);
-      await interaction.update({ content: 'Failed to register bot.', embeds: [], components: [] });
+      await interaction.update({ content: 'Failed to register bot.', embeds: [], flags: COMPONENTS_V2_EPHEMERAL });
     }
   }
 }

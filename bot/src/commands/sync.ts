@@ -3,6 +3,7 @@ import { client } from '../bot.js';
 import { refreshInviteCache } from '../services/inviteCache.js';
 import { db } from '../database/client.js';
 import { logger } from '../utils/logger.js';
+import { COMPONENTS_V2_FLAG, EPHEMERAL_FLAG } from '../utils/components.js';
 
 export const data = new SlashCommandBuilder()
   .setName('sync')
@@ -21,7 +22,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.guild) {
-    await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+    await interaction.reply({ content: 'This command can only be used in a server.', flags: EPHEMERAL_FLAG });
     return;
   }
   
@@ -41,7 +42,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         .setColor(0x57F287)
         .setTimestamp();
       
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed], flags: COMPONENTS_V2_FLAG });
       
     } else if (subcommand === 'stats') {
       const invites = await db.invites.getByGuild(guildId);
@@ -88,10 +89,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         .setColor(0x57F287)
         .setTimestamp();
       
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed], flags: COMPONENTS_V2_FLAG });
     }
   } catch (error) {
     logger.error(`Error in /sync command: ${error}`);
-    await interaction.editReply({ content: 'An error occurred during sync.' });
+    await interaction.editReply({ content: 'An error occurred during sync.', flags: COMPONENTS_V2_FLAG });
   }
 }

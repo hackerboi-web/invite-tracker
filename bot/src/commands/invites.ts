@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits } from 'discord.js';
 import { db } from '../database/client.js';
 import { refreshInviteCache } from '../services/inviteCache.js';
-import { createInviteEmbed, createJoinEventsEmbed, createPaginationButtons, storePaginationState } from '../utils/components.js';
+import { createInviteEmbed, createJoinEventsEmbed, storePaginationState, COMPONENTS_V2_FLAG } from '../utils/components.js';
 import { logger } from '../utils/logger.js';
 
 export const data = new SlashCommandBuilder()
@@ -21,14 +21,14 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.guild) {
-    await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+    await interaction.reply({ content: 'This command can only be used in a server.', flags: 64 });
     return;
   }
   
   const subcommand = interaction.options.getSubcommand();
   const guildId = interaction.guild.id;
   
-  await interaction.deferReply({ ephemeral: false });
+  await interaction.deferReply();
   
   try {
     if (subcommand === 'leaderboard') {
@@ -50,10 +50,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         userId: interaction.user.id
       });
       
-      const embed = createInviteEmbed(invites, guildId, 0, pageSize);
-      const row = createPaginationButtons(stateId, 0, totalPages);
+      const embed = createInviteEmbed(invites, guildId, 0, pageSize, stateId, totalPages);
       
-      await interaction.editReply({ embeds: [embed], components: [row] });
+      await interaction.editReply({ embeds: [embed], flags: COMPONENTS_V2_FLAG });
       
     } else if (subcommand === 'joins') {
       const events = await db.joinEvents.getByGuild(guildId);
@@ -74,10 +73,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         userId: interaction.user.id
       });
       
-      const embed = createJoinEventsEmbed(events, guildId, 0, pageSize);
-      const row = createPaginationButtons(stateId, 0, totalPages);
+      const embed = createJoinEventsEmbed(events, guildId, 0, pageSize, stateId, totalPages);
       
-      await interaction.editReply({ embeds: [embed], components: [row] });
+      await interaction.editReply({ embeds: [embed], flags: COMPONENTS_V2_FLAG });
     }
   } catch (error) {
     logger.error(`Error in /invites command: ${error}`);
